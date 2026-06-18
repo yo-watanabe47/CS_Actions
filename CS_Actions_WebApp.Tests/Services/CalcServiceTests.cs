@@ -11,13 +11,13 @@ public class CalcServiceTests
     /// 加算処理のテスト
     /// </summary>   
     [TestMethod]
-    public void Execute_Addition_ReturnsCorrectValue()
-    {
-        var service = new CalcService();
-        var result = service.Execute(10, 5, "+");
-        // テストを失敗させる
-        Assert.AreEqual(10, result);
-    }
+public void Execute_Addition_ReturnsCorrectValue()
+{
+    var service = new CalcService();
+    var result = service.Execute(10, 5, "+");
+    // テストを成功させる
+    Assert.AreEqual(15, result);
+}
 
     /// <summary>
     /// ゼロ除算処理のテスト
