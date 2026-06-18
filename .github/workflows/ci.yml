@@ -19,3 +19,7 @@ jobs:
 
       - name: プロジェクトのビルド
         run: dotnet build --configuration Release
+        
+      - name: 単体テストの実行
+        # ビルド済みのバイナリを再利用(--no-build)してテストを実行
+        run: dotnet test --configuration Release --no-build
