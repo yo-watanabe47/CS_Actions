@@ -1,0 +1,30 @@
+@model CS_Actions_WebApp.Models.CalcViewModel
+
+@{
+    ViewData["Title"] = "計算アプリ";
+}
+
+<h2>CI/CD 計算アプリ</h2>
+
+<form asp-controller="Calc" asp-action="Calculate" method="post">
+    <input type="number" asp-for="Value1" required />
+    <select asp-for="OperatorType">
+        <option value="+">＋</option>
+        <option value="-">－</option>
+        <option value="*">×</option>
+        <option value="/">÷</option>
+    </select>
+    <input type="number" asp-for="Value2" required />
+    <button type="submit">計算</button>
+</form>
+
+<hr />
+
+@if (Model?.ErrorMessage != null)
+{
+    <div style="color: red;"><strong>エラー:</strong> @Model.ErrorMessage</div>
+}
+else if (Model?.Result != null)
+{
+    <div><strong>結果:</strong> @Model.Result</div>
+}
