@@ -1,6 +1,7 @@
-using Microsoft.AspNetCore.Mvc;
 using CS_Actions_WebApp.Models;
 using CS_Actions_WebApp.Services;
+
+using Microsoft.AspNetCore.Mvc;
 namespace CS_Actions_WebApp.Controllers;
 /// <summary>
 /// 計算機能のコントローラークラス
@@ -16,7 +17,7 @@ public class CalcController : Controller
     public CalcController(CalcService calcService)
     {
         _calcService = calcService;
-    } 
+    }
 
     /// <summary>
     /// 計算機能の入力を表示するアクション
