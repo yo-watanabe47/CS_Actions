@@ -17,7 +17,7 @@ public class CalcService
     {
         return operatorType switch
         {
-            "+" => value + value2,
+                 "+" => value + value2,
             "-" => value - value2,
             "*" => value * value2,
             "/" when value2 == 0 => throw new DivideByZeroException("0で割ることはできません。"),

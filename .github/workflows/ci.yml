@@ -17,6 +17,11 @@ jobs:
         with:
           dotnet-version: '10.0.x'
 
+      # ----- ここから追記 -----
+      - name: コードフォーマットの検証 (Lint)
+        run: dotnet format --verify-no-changes
+      # ----- ここまで追記 -----
+
       - name: プロジェクトのビルド
         run: dotnet build --configuration Release
         
