@@ -1,0 +1,21 @@
+name: .NET CS_WebApp CI
+
+on: 
+  push:
+    branches:
+      - main
+
+jobs:
+  build-and-test:
+    runs-on: ubuntu-latest
+    steps:
+      - name: リポジトリのチェックアウト
+        uses: actions/checkout@v4
+
+      - name: .NET SDKのセットアップ
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.0.x'
+
+      - name: プロジェクトのビルド
+        run: dotnet build --configuration Release
