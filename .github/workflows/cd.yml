@@ -67,7 +67,10 @@ jobs:
 
       - name: アプリケーションのビルドと発行 (Publish)
         # FDD形式、Linux向けに最適化して ./publish フォルダに出力
-        run: dotnet publish -c Release -r linux-x64 --self-contained false -o ./publish
+        run: |
+          dotnet publish -c Release -r linux-x64 --self-contained false -o ./publish
+          # 追加 リポジトリ内のsql/init.sqlをpublishディレクトリにコピーする
+          cp SQL/init.sql ./publish/
 
       # --- 運用環境の事前準備（ディレクトリ作成とクリーンアップ） ---
       - name: デプロイ先ディレクトリの準備
@@ -95,3 +98,21 @@ jobs:
           source: "./publish/*"       # 送信元（Runner上で生成した全ファイル）
           target: "/var/www/myapp/"   # 送信先（VM上の配置ディレクトリ）
           strip_components: 1         # 転送先に「publish」という親フォルダを作らず中身だけを展開
+
+          # --- データベースの初期化（SQLの自動実行） ---
+      - name: データベースの初期化（init.sql の実行）
+        uses: appleboy/ssh-action@master
+        with:
+          host: ${{ secrets.ACTIONS_AZURE_HOST }}  
+          username: ${{ secrets.ACTIONS_AZURE_USER }} 
+          key: ${{ secrets.ACTIONS_AZURE_SECRET }} 
+          script: |
+            echo "--- Executing init.sql against Remote Database ---"     
+            # 既にVMにインストール済みのpsqlを利用し、リモートDBへSQLを適用
+            # （/var/www/myapp/ に転送された init.sql を使用します）
+            PGPASSWORD="${{ secrets.AZURE_DB_PASSWORD }}" psql -h ${{ secrets.AZURE_DB_HOST }} -U ${{ secrets.AZURE_DB_USER }} -d postgres -f /var/www/myapp/init.sql
+            echo "--- Verifying Data Insertion ---"
+            # 作成された ActionsDB に接続し、productテーブルの件数を確認する
+            PGPASSWORD="${{ secrets.AZURE_DB_PASSWORD }}" psql -h ${{ secrets.AZURE_DB_HOST }} -U ${{ secrets.AZURE_DB_USER }} -d ActionsDB -c "SELECT COUNT(*) AS product_total_count FROM product;"
+            echo "--- Database Initialization Completed ---"
+
