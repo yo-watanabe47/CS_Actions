@@ -116,3 +116,88 @@ jobs:
             PGPASSWORD="${{ secrets.AZURE_DB_PASSWORD }}" psql -h ${{ secrets.AZURE_DB_HOST }} -U ${{ secrets.AZURE_DB_USER }} -d ActionsDB -c "SELECT COUNT(*) AS product_total_count FROM product;"
             echo "--- Database Initialization Completed ---"
 
+          # --- Webサーバーの連携とアプリケーションの起動 ---
+      - name: リバースプロキシ構成とサービスの起動
+        uses: appleboy/ssh-action@master
+        with:
+          # 運用環境（VM）へのSSH接続情報
+          host: ${{ secrets.ACTIONS_AZURE_HOST }}
+          username: ${{ secrets.ACTIONS_AZURE_USER }}
+          key: ${{ secrets.ACTIONS_AZURE_SECRET }}
+          script: |
+            echo "--- Configuring systemd service ---"      
+            
+            # 【1. systemd サービス定義ファイルの生成】
+            # アプリをバックグラウンドで常時稼働させるための設定ファイル(myapp.service)を動的に作成
+            # ヒアドキュメント(cat << EOF > ...)を使って、設定内容を直接ファイルに書き込み
+            sudo bash -c 'cat << EOF > /etc/systemd/system/myapp.service
+            [Unit]
+              # プロセスの説明（systemctl status 等で表示）
+              Description=C# ASP.NET Core Application           
+            [Service]
+              # アプリケーションの実行ベースとなるディレクトリ
+              WorkingDirectory=/var/www/myapp
+              # アプリケーションの起動コマンド(Kestrelサーバーをlocalhostの5000番ポートで起動)
+              ExecStart=/usr/bin/dotnet /var/www/myapp/CS_Actions_WebApp.dll --urls "http://localhost:5000"
+              # アプリが異常終了した場合、常に自動再起動する設定
+              Restart=always
+              # 再起動するまでの待機時間（秒）
+              RestartSec=10 
+              # ログ(syslog)出力時の識別子名
+              SyslogIdentifier=dotnet-myapp
+              # セキュリティの観点から、rootではなく一般ユーザー(ubuntu等)権限で実行
+              User=${{ secrets.ACTIONS_AZURE_USER }}      
+              # .NETの動作環境をProduction(運用環境)に設定
+              Environment=ASPNETCORE_ENVIRONMENT=Production
+              # 【重要】GitHub Secretsから接続文字列を組み立てて環境変数として注入
+              # ソースコードや設定ファイルにパスワードを直接書かない（ハードコードしない）ためのベストプラクティス
+              Environment="ConnectionStrings__DefaultConnection=Host=${{ secrets.AZURE_DB_HOST }};Database=ActionsDB;Username=${{ secrets.AZURE_DB_USER }};Password=${{ secrets.AZURE_DB_PASSWORD }}"      
+            [Install]
+              # OS起動時に自動起動するためのターゲット指定(通常のマルチユーザーモード時)
+              WantedBy=multi-user.target
+            EOF'
+            echo "--- Configuring Nginx ---"
+                  
+            # 【2. Nginx リバースプロキシ設定の生成】
+            echo "--- Installing Nginx ---"
+            # Nginxがインストールされていない場合を考慮し、インストールを実行
+            sudo apt-get update
+            sudo apt-get install -y nginx
+            echo "--- Configuring Nginx ---"
+            # インターネットからのアクセス(80番ポート)を受け止め、内部の5000番ポートへ転送(プロキシ)する設定
+            sudo bash -c 'cat << EOF > /etc/nginx/sites-available/default
+            server {
+              # HTTPアクセス(80番ポート)を待ち受ける
+              listen 80;
+                
+              # 全てのホスト名(ドメイン)リクエストを受け付ける
+              server_name _;
+                      
+              location / {
+                # 内部で動いている.NETアプリ(5000番ポート)へリクエストを転送
+                proxy_pass http://localhost:5000;      
+                # HTTP/1.1を使用
+                proxy_http_version 1.1;
+                # WebSocket通信などをサポートするためのヘッダー群
+                proxy_set_header Upgrade \$http_upgrade;
+                proxy_set_header Connection keep-alive;              
+                # 元のクライアントのホスト名やIP情報を、背後の.NETアプリへ正しく伝えるための設定
+                proxy_set_header Host \$host;
+                proxy_cache_bypass \$http_upgrade;
+                proxy_set_header X-Forwarded-For \$proxy_add_x_forwarded_for;
+                proxy_set_header X-Forwarded-Proto \$scheme;
+              }
+            }
+            EOF'
+            echo "--- Reloading Daemons and Restarting Services ---"
+             
+            # 【3. 設定の反映とサービスの起動】
+            # systemdの定義ファイルを新規作成・変更したため、システムに再読み込みさせる
+            sudo systemctl daemon-reload
+            # OS再起動時にもアプリが自動起動するように有効化
+            sudo systemctl enable myapp.service
+            # アプリケーションサービスを起動(または再起動して最新化)
+            sudo systemctl restart myapp.service
+            # Nginxを再起動し、作成したリバースプロキシ設定を反映させる
+            sudo systemctl restart nginx
+            echo "--- Deployment Completed Successfully! ---"
