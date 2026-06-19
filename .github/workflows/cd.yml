@@ -14,7 +14,7 @@ on:
 # 実行するジョブ（作業のまとまり）の定義
 jobs:
   deploy: # ジョブの識別名（任意の名前）
-    # GitHub側が用意する使い捨ての仮想環境（Runner）のOSを指定
+    # GitHub側が用意する使い捨ての仮想環境(Runner)のOSを指定
     runs-on: ubuntu-latest
     
     # ジョブ内で順番に実行される手順（ステップ）のリスト
@@ -38,3 +38,20 @@ jobs:
             uname -a # サーバーのOSやカーネル情報を出力し、Linuxであることを確認
             echo "--- Current User ---"
             whoami   # 実行ユーザーを出力し、指定したユーザーでログインできたか確認
+
+      - name: ASP.NET Core Runtime 10.0 のプロビジョニング
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.ACTIONS_AZURE_HOST }}
+          username: ${{ secrets.ACTIONS_AZURE_USER }}
+          key: ${{ secrets.ACTIONS_AZURE_SECRET }}
+          script: |
+            # 1. パッケージリストの最新化
+            echo "--- Updating Package List ---"
+            sudo apt-get update
+            # 2. ASP.NET Core ランタイムのインストール
+            echo "--- Installing ASP.NET Core Runtime 10.0 ---"
+            sudo apt-get install -y aspnetcore-runtime-10.0
+            # 3. インストール結果の確認
+            echo "--- Verifying Installation ---"
+            dotnet --list-runtimes
